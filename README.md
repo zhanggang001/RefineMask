@@ -1,146 +1,107 @@
-<div align="center">
-  <img src="resources/mmdet-logo.png" width="600"/>
-</div>
+## RefineMask: Towards High-Quality Instance Segmentation <br>with Fine-Grained Features (CVPR 2021)
 
-**News**: We released the technical report on [ArXiv](https://arxiv.org/abs/1906.07155).
+This repo is the official implementation of [RefineMask: Towards High-Quality Instance Segmentation with Fine-Grained Features](https://arxiv.org/abs/2104.08569).
 
-Documentation: https://mmdetection.readthedocs.io/
+## Framework
+![image](https://user-images.githubusercontent.com/79979076/112595320-394a7280-8e45-11eb-90b1-3164accd0518.png)
 
-## Introduction
+## Main Results
 
-MMDetection is an open source object detection toolbox based on PyTorch. It is
-a part of the OpenMMLab project developed by [Multimedia Laboratory, CUHK](http://mmlab.ie.cuhk.edu.hk/).
+### Results on COCO
+Method | Backbone | Schedule | AP | AP<sup>*</sup> | Checkpoint
+------ | -------- | -------- | -- | -------------- | ----------
+Mask R-CNN | R50-FPN | 1x | 34.7 | 36.8 |
+RefineMask | R50-FPN | 1x | 37.3 | 40.6 | [download](https://drive.google.com/file/d/1ad7YewfVLJIZa_xErCW4qJBzwS4yKCnS/view?usp=sharing)
+Mask R-CNN | R50-FPN | 2x | 35.4 | 37.7
+RefineMask | R50-FPN | 2x | 37.8 | 41.2 | [download](https://drive.google.com/file/d/1-UuTjM9b3EfINqgGH0jyJ9uWJ3P2_wgy/view?usp=sharing)
+Mask R-CNN | R101-FPN | 1x | 36.1 | 38.4 |
+RefineMask | R101-FPN | 1x | 38.6 | 41.8 | [download](https://drive.google.com/file/d/1JcpfBzXhrSWa4MwH0LFQ575WIYxCdUyz/view?usp=sharing)
+Mask R-CNN | R101-FPN | 2x | 36.6 | 39.3
+RefineMask | R101-FPN | 2x | 39.0 | 42.4 | [download](https://drive.google.com/file/d/1W6jdqziYqAqiyYide9SxvHE2y79A0KJC/view?usp=sharing)
 
-The master branch works with **PyTorch 1.3 to 1.5**.
-The old v1.x branch works with PyTorch 1.1 to 1.4, but v2.0 is strongly recommended for faster speed, higher performance, better design and more friendly usage.
+Note: No data augmentations except standard horizontal flipping were used.
 
-![demo image](resources/coco_test_12510.jpg)
+### Results on LVIS
+Method | Backbone | Schedule | AP | AP<sub>r</sub> | AP<sub>c</sub> | AP<sub>f</sub> | Checkpoint
+------ | -------- | -------- | -- | -------------- | -------------- | -------------- | ----------
+Mask R-CNN | R50-FPN | 1x | 22.1 | 10.1 | 21.7 | 30.0
+RefineMask | R50-FPN | 1x | 25.7 | 13.8 | 24.9 | 31.8 | [download](https://drive.google.com/file/d/1t10bX0S6II-PNdOP1z_hmXHs7K3fhJdv/view?usp=sharing)
+Mask R-CNN | R101-FPN | 1x | 23.7 | 12.3 | 23.2 | 29.1
+RefineMask | R101-FPN | 1x | 27.1| 15.6 | 26.2 | 33.1 | [download](https://drive.google.com/file/d/13cLKIFwlMg_QSAuXHEwISehm4PlB95eC/view?usp=sharing)
 
-### Major features
+### Results on Cityscapes
+Method | Backbone | Schedule | AP | AP<sub>S</sub> | AP<sub>M</sub> | AP<sub>L</sub> | Checkpoint
+------ | -------- | -------- | -- | -------------- | -------------- | -------------- | ----------
+Mask R-CNN | R50-FPN | 1x | 33.8 | 12.0 | 31.5 | 51.8
+RefineMask | R50-FPN | 1x | 37.6 | 14.0 | 35.4 | 57.9 | [download](https://drive.google.com/file/d/1hEXRl2zqC0rUyKixU1FLoFTlNLqWvUCE/view?usp=sharing)
 
-- **Modular Design**
-
-  We decompose the detection framework into different components and one can easily construct a customized object detection framework by combining different modules.
-
-- **Support of multiple frameworks out of box**
-
-  The toolbox directly supports popular and contemporary detection frameworks, *e.g.* Faster RCNN, Mask RCNN, RetinaNet, etc.
-
-- **High efficiency**
-
-  All basic bbox and mask operations run on GPUs. The training speed is faster than or comparable to other codebases, including [Detectron2](https://github.com/facebookresearch/detectron2), [maskrcnn-benchmark](https://github.com/facebookresearch/maskrcnn-benchmark) and [SimpleDet](https://github.com/TuSimple/simpledet).
-
-- **State of the art**
-
-  The toolbox stems from the codebase developed by the *MMDet* team, who won [COCO Detection Challenge](http://cocodataset.org/#detection-leaderboard) in 2018, and we keep pushing it forward.
-
-Apart from MMDetection, we also released a library [mmcv](https://github.com/open-mmlab/mmcv) for computer vision research, which is heavily depended on by this toolbox.
-
-## License
-
-This project is released under the [Apache 2.0 license](LICENSE).
-
-## Changelog
-
-v2.3.0 was released in 5/8/2020.
-Please refer to [changelog.md](docs/changelog.md) for details and release history.
-A comparison between v1.x and v2.0 codebases can be found in [compatibility.md](docs/compatibility.md).
-
-## Benchmark and model zoo
-
-Results and models are available in the [model zoo](docs/model_zoo.md).
-
-Supported backbones:
-- [x] ResNet
-- [x] ResNeXt
-- [x] VGG
-- [x] HRNet
-- [x] RegNet
-- [x] Res2Net
-
-Supported methods:
-- [x] [RPN](configs/rpn)
-- [x] [Fast R-CNN](configs/fast_rcnn)
-- [x] [Faster R-CNN](configs/faster_rcnn)
-- [x] [Mask R-CNN](configs/mask_rcnn)
-- [x] [Cascade R-CNN](configs/cascade_rcnn)
-- [x] [Cascade Mask R-CNN](configs/cascade_rcnn)
-- [x] [SSD](configs/ssd)
-- [x] [RetinaNet](configs/retinanet)
-- [x] [GHM](configs/ghm)
-- [x] [Mask Scoring R-CNN](configs/ms_rcnn)
-- [x] [Double-Head R-CNN](configs/double_heads)
-- [x] [Hybrid Task Cascade](configs/htc)
-- [x] [Libra R-CNN](configs/libra_rcnn)
-- [x] [Guided Anchoring](configs/guided_anchoring)
-- [x] [FCOS](configs/fcos)
-- [x] [RepPoints](configs/reppoints)
-- [x] [Foveabox](configs/foveabox)
-- [x] [FreeAnchor](configs/free_anchor)
-- [x] [NAS-FPN](configs/nas_fpn)
-- [x] [ATSS](configs/atss)
-- [x] [FSAF](configs/fsaf)
-- [x] [PAFPN](configs/pafpn)
-- [x] [Dynamic R-CNN](configs/dynamic_rcnn)
-- [x] [PointRend](configs/point_rend)
-- [x] [CARAFE](configs/carafe/README.md)
-- [x] [DCNv2](configs/dcn/README.md)
-- [x] [Group Normalization](configs/gn/README.md)
-- [x] [Weight Standardization](configs/gn+ws/README.md)
-- [x] [OHEM](configs/faster_rcnn/faster_rcnn_r50_fpn_ohem_1x_coco.py)
-- [x] [Soft-NMS](configs/faster_rcnn/faster_rcnn_r50_fpn_soft_nms_1x_coco.py)
-- [x] [Generalized Attention](configs/empirical_attention/README.md)
-- [x] [GCNet](configs/gcnet/README.md)
-- [x] [Mixed Precision (FP16) Training](configs/fp16/README.md)
-- [x] [InstaBoost](configs/instaboost/README.md)
-- [x] [GRoIE](configs/groie/README.md)
-- [x] [DetectoRS](configs/detectors/README.md)
-- [x] [Generalized Focal Loss](configs/gfl/README.md)
-- [x] [CornerNet](configs/cornernet/README.md)
-
-Some other methods are also supported in [projects using MMDetection](./docs/projects.md).
-
-## Installation
-
-Please refer to [install.md](docs/install.md) for installation and dataset preparation.
+### Efficiency of RefineMask
+Method | AP | AP<sup>*</sup> | FPS
+------ | -- | -------------- | ---
+Mask R-CNN | 34.7 | 36.8 | 15.7
+PointRend | 35.6 | 38.7 | 11.4
+HTC | 37.4 | 40.7 | 4.4
+RefineMask | 37.3 | 40.9 | 11.4
 
 
-## Getting Started
+## Usage
 
-Please see [getting_started.md](docs/getting_started.md) for the basic usage of MMDetection.
-We provide [colab tutorial](demo/MMDet_Tutorial.ipynb) for beginners.
-There are also tutorials for [finetuning models](docs/tutorials/finetune.md), [adding new dataset](docs/tutorials/new_dataset.md), [designing data pipeline](docs/tutorials/data_pipeline.md), and [adding new modules](docs/tutorials/new_modules.md).
+### Requirements
+* Python 3.6+
+* Pytorch 1.5.0
+* mmcv-full 1.0.5
 
-## Contributing
+### Datasets
+    data
+      ├── coco
+      |   ├── annotations
+      │   │   │   ├── instances_train2017.json
+      │   │   │   ├── instances_val2017.json
+      │   │   │   ├── lvis_v0.5_val_cocofied.json
+      │   ├── train2017
+      │   │   ├── 000000004134.png
+      │   │   ├── 000000031817.png
+      │   │   ├── ......
+      │   ├── val2017
+      │   ├── test2017
+      ├── lvis
+      |   ├── annotations
+      │   │   │   ├── lvis_v1_train.json
+      │   │   │   ├── lvis_v1_val.json
+      │   ├── train2017
+      │   │   ├── 000000004134.png
+      │   │   ├── 000000031817.png
+      │   │   ├── ......
+      │   ├── val2017
+      │   ├── test2017
+      ├── cityscapes
+      |   ├── annotations
+      │   │   │   ├── instancesonly_filtered_gtFine_train.json
+      │   │   │   ├── instancesonly_filtered_gtFine_val.json
+      │   ├── leftImg8bit
+      │   |   ├── train
+      │   │   ├── val
+      │   │   ├── test
 
-We appreciate all contributions to improve MMDetection. Please refer to [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the contributing guideline.
+Note: We used the lvis-v1.0 dataset which consists of 1203 categories.
 
-## Acknowledgement
+### Training
+```
+./scripts/dist_train.sh ./configs/refinemask/coco/r50-refinemask-1x.py 8
+```
+Note: The codes only support batch size 1 per GPU, and we trained all models with a total batch size 16x1. If you train models with a total batch size 8x1, the performance may drop. We will support batch size 2 or more per GPU later. You can use ./scripts/slurm_train.sh for training with multi-nodes.
 
-MMDetection is an open source project that is contributed by researchers and engineers from various colleges and companies. We appreciate all the contributors who implement their methods or add new features, as well as users who give valuable feedbacks.
-We wish that the toolbox and benchmark could serve the growing research community by providing a flexible toolkit to reimplement existing methods and develop their own new detectors.
-
+### Inference
+```
+./scripts/dist_test.sh ./configs/refinemask/coco/r50-refinemask-1x.py xxxx.pth 8
+```
 
 ## Citation
-
-If you use this toolbox or benchmark in your research, please cite this project.
-
 ```
-@article{mmdetection,
-  title   = {{MMDetection}: Open MMLab Detection Toolbox and Benchmark},
-  author  = {Chen, Kai and Wang, Jiaqi and Pang, Jiangmiao and Cao, Yuhang and
-             Xiong, Yu and Li, Xiaoxiao and Sun, Shuyang and Feng, Wansen and
-             Liu, Ziwei and Xu, Jiarui and Zhang, Zheng and Cheng, Dazhi and
-             Zhu, Chenchen and Cheng, Tianheng and Zhao, Qijie and Li, Buyu and
-             Lu, Xin and Zhu, Rui and Wu, Yue and Dai, Jifeng and Wang, Jingdong
-             and Shi, Jianping and Ouyang, Wanli and Loy, Chen Change and Lin, Dahua},
-  journal= {arXiv preprint arXiv:1906.07155},
-  year={2019}
+@article{zhang2021refinemask,
+  title={RefineMask: Towards High-Quality Instance Segmentation with Fine-Grained Features},
+  author={Gang, Zhang and Xin, Lu and Jingru, Tan and Jianmin, Li and Zhaoxiang, Zhang and Quanquan, Li and Xiaolin, Hu},
+  journal={arXiv preprint arXiv:2104.08569},
+  year={2021}
 }
 ```
-
-
-## Contact
-
-This repo is currently maintained by Kai Chen ([@hellock](http://github.com/hellock)), Yuhang Cao ([@yhcao6](https://github.com/yhcao6)), Wenwei Zhang ([@ZwwWayne](https://github.com/ZwwWayne)),
-Jiarui Xu ([@xvjiarui](https://github.com/xvjiarui)). Other core developers include Jiangmiao Pang ([@OceanPang](https://github.com/OceanPang)) and Jiaqi Wang ([@myownskyW7](https://github.com/myownskyW7)).
