@@ -1,4 +1,5 @@
 from mmcv.utils import Registry, build_from_cfg
+from mmdet.utils import get_root_logger
 from torch import nn
 
 BACKBONES = Registry('backbone')
@@ -64,4 +65,9 @@ def build_loss(cfg):
 
 def build_detector(cfg, train_cfg=None, test_cfg=None):
     """Build detector."""
-    return build(cfg, DETECTORS, dict(train_cfg=train_cfg, test_cfg=test_cfg))
+    model = build(cfg, DETECTORS, dict(train_cfg=train_cfg, test_cfg=test_cfg))
+
+    logger = get_root_logger()
+    logger.info(str(model))
+
+    return model

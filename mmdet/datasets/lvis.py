@@ -6,9 +6,11 @@ import tempfile
 import numpy as np
 from mmcv.utils import print_log
 from terminaltables import AsciiTable
+from mmdet.utils import get_root_logger
 
 from .builder import DATASETS
 from .coco import CocoDataset
+from pycocotools import mask as maskUtils
 
 
 @DATASETS.register_module()
@@ -403,15 +405,15 @@ class LVISV05Dataset(CocoDataset):
                     # Compute per-category AP
                     # from https://github.com/facebookresearch/detectron2/
                     precisions = lvis_eval.eval['precision']
-                    # precision: (iou, recall, cls, area range, max dets)
+                    # precision: (iou, recall, cls, area range)
                     assert len(self.cat_ids) == precisions.shape[2]
 
                     results_per_category = []
                     for idx, catId in enumerate(self.cat_ids):
                         # area range index 0: all area ranges
                         # max dets index -1: typically 100 per image
-                        nm = self.coco.load_cats(catId)[0]
-                        precision = precisions[:, :, idx, 0, -1]
+                        nm = self.coco.load_cats([catId])[0]
+                        precision = precisions[:, :, idx, 0]
                         precision = precision[precision > -1]
                         if precision.size:
                             ap = np.mean(precision)
@@ -433,6 +435,12 @@ class LVISV05Dataset(CocoDataset):
                     table = AsciiTable(table_data)
                     print_log('\n' + table.table, logger=logger)
 
+                    format_summary_result_list = self._get_lvis_format_result(lvis_eval)
+                    format_summary_result = "\n".join(format_summary_result_list)
+
+                    with open(f"per-category-ap-{metric}.txt", 'w') as f:
+                        f.write(table.table + "\n" + format_summary_result)
+
                 for k, v in lvis_results.items():
                     if k.startswith('AP'):
                         key = '{}_{}'.format(metric, k)
@@ -447,6 +455,86 @@ class LVISV05Dataset(CocoDataset):
         if tmp_dir is not None:
             tmp_dir.cleanup()
         return eval_results
+
+    def _filter_imgs(self, min_size=32):
+        """Filter images too small or without ground truths."""
+        logger = get_root_logger()
+        valid_inds = []
+        ids_with_ann = set(_['image_id'] for _ in self.coco.anns.values())
+        for i, img_info in enumerate(self.data_infos):
+            if self.filter_empty_gt and self.img_ids[i] not in ids_with_ann:
+                continue
+            filename = img_info['filename']
+            ann_info = self.get_ann_info(i)
+            bboxes = ann_info['bboxes']
+            if len(bboxes) == 0:
+                logger.info(f'detected bad img: {filename}, excluded')
+                continue
+            if min(img_info['width'], img_info['height']) >= min_size:
+                valid_inds.append(i)
+        return valid_inds
+
+    def _get_lvis_format_result(self, lvis_eval):
+
+        def summarize(lvis_eval):
+            result_dict = {}
+
+            max_dets = lvis_eval.params.max_dets
+            result_dict["AP"]   = lvis_eval._summarize('ap')
+
+            iou_thrs = np.linspace(0.5, 0.95, int(np.round((0.95 - 0.5) / 0.05)) + 1, endpoint=True)
+            for idx, thr in enumerate(iou_thrs):
+                result_dict["AP{}".format(int(100 * thr))] = lvis_eval._summarize('ap', iou_thr=thr)
+
+            result_dict["APs"] = lvis_eval._summarize('ap', area_rng="small")
+            result_dict["APm"] = lvis_eval._summarize('ap', area_rng="medium")
+            result_dict["APl"] = lvis_eval._summarize('ap', area_rng="large")
+            result_dict["APr"] = lvis_eval._summarize('ap', freq_group_idx=0)
+            result_dict["APc"] = lvis_eval._summarize('ap', freq_group_idx=1)
+            result_dict["APf"] = lvis_eval._summarize('ap', freq_group_idx=2)
+
+            key = "AR@{}".format(max_dets)
+            result_dict[key] = lvis_eval._summarize('ar')
+
+            for area_rng in ["small", "medium", "large"]:
+                key = "AR{}@{}".format(area_rng[0], max_dets)
+                result_dict[key] = lvis_eval._summarize('ar', area_rng=area_rng)
+
+            return result_dict
+
+        template = " {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} catIds={:>3s}] = {:0.3f}"
+
+        result_list = []
+        result_dict = summarize(lvis_eval)
+        for key, value in result_dict.items():
+            max_dets = lvis_eval.params.max_dets
+            if "AP" in key:
+                title = "Average Precision"
+                _type = "(AP)"
+            else:
+                title = "Average Recall"
+                _type = "(AR)"
+
+            if len(key) > 2 and key[2].isdigit():
+                iou_thr = (float(key[2:]) / 100)
+                iou = "{:0.2f}".format(iou_thr)
+            else:
+                iou = "{:0.2f}:{:0.2f}".format(
+                    lvis_eval.params.iou_thrs[0], lvis_eval.params.iou_thrs[-1]
+                )
+
+            if len(key) > 2 and key[2] in ["r", "c", "f"]:
+                cat_group_name = key[2]
+            else:
+                cat_group_name = "all"
+
+            if len(key) > 2 and key[2] in ["s", "m", "l"]:
+                area_rng = key[2]
+            else:
+                area_rng = "all"
+
+            result_list.append(template.format(title, _type, iou, area_rng, max_dets, cat_group_name, value))
+        return result_list
 
 
 LVISDataset = LVISV05Dataset

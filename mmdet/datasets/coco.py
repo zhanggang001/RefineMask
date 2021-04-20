@@ -8,6 +8,7 @@ import numpy as np
 from mmcv.utils import print_log
 from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
+from lvis import LVIS, LVISResults, LVISEval
 from terminaltables import AsciiTable
 
 from mmdet.core import eval_recalls
@@ -369,7 +370,8 @@ class CocoDataset(CustomDataset):
                  classwise=False,
                  proposal_nums=(100, 300, 1000),
                  iou_thrs=None,
-                 metric_items=None):
+                 metric_items=None,
+                 for_cityscapes=False):
         """Evaluation in COCO protocol.
 
         Args:
@@ -525,6 +527,12 @@ class CocoDataset(CustomDataset):
                     table = AsciiTable(table_data)
                     print_log('\n' + table.table, logger=logger)
 
+                    format_summary_result_list = self._get_coco_format_result(cocoEval)
+                    format_summary_result = "\n".join(format_summary_result_list)
+
+                    with open(f"per-category-ap-{metric}.txt", 'w') as f:
+                        f.write(table.table + "\n" + format_summary_result)
+
                 if metric_items is None:
                     metric_items = [
                         'mAP', 'mAP_50', 'mAP_75', 'mAP_s', 'mAP_m', 'mAP_l'
@@ -540,6 +548,153 @@ class CocoDataset(CustomDataset):
                 eval_results[f'{metric}_mAP_copypaste'] = (
                     f'{ap[0]:.3f} {ap[1]:.3f} {ap[2]:.3f} {ap[3]:.3f} '
                     f'{ap[4]:.3f} {ap[5]:.3f}')
+
+        if not for_cityscapes:
+            self.eval_cocofied_lvis_result(
+                osp.join(self.data_root, 'annotations/lvis_v0.5_val_cocofied.json'),
+                result_files['segm'],
+                metric='segm',
+            )
+
         if tmp_dir is not None:
             tmp_dir.cleanup()
         return eval_results
+
+    def _get_coco_format_result(self, coco_eval):
+
+        def _summarize(coco_eval, ap=1, iouThr=None, areaRng='all', maxDets=100):
+            p = coco_eval.params
+            iStr = '{:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} ] = {:0.3f}'  # noqa: E501
+            titleStr = 'Average Precision' if ap == 1 else 'Average Recall'
+            typeStr = '(AP)' if ap == 1 else '(AR)'
+            iouStr = '{:0.2f}:{:0.2f}'.format(p.iouThrs[0], p.iouThrs[-1]) \
+                if iouThr is None else '{:0.2f}'.format(iouThr)
+
+            aind = [i for i, aRng in enumerate(p.areaRngLbl) if aRng == areaRng]
+            mind = [i for i, mDet in enumerate(p.maxDets) if mDet == maxDets]
+            if ap == 1:
+                # dimension of precision: [TxRxKxAxM]
+                s = coco_eval.eval['precision']
+                # IoU
+                if iouThr is not None:
+                    t = np.where(iouThr == p.iouThrs)[0]
+                    s = s[t]
+                s = s[:, :, :, aind, mind]
+            else:
+                # dimension of recall: [TxKxAxM]
+                s = coco_eval.eval['recall']
+                if iouThr is not None:
+                    t = np.where(iouThr == p.iouThrs)[0]
+                    s = s[t]
+                s = s[:, :, aind, mind]
+            if len(s[s > -1]) == 0:
+                mean_s = -1
+            else:
+                mean_s = np.mean(s[s > -1])
+            return iStr.format(titleStr, typeStr, iouStr, areaRng, maxDets, mean_s)
+
+        result_list = []
+        result_list.append(_summarize(coco_eval, 1))
+
+        iou_thrs = np.linspace(.5, 0.95, int(np.round((0.95 - .5) / .05)) + 1, endpoint=True)
+        for idx, thr in enumerate(iou_thrs):
+            result_list.append(_summarize(coco_eval, 1, iouThr=thr))
+
+        result_list.append(_summarize(coco_eval, 1, areaRng='small'))
+        result_list.append(_summarize(coco_eval, 1, areaRng='medium'))
+        result_list.append(_summarize(coco_eval, 1, areaRng='large'))
+        result_list.append(_summarize(coco_eval, 0))
+        result_list.append(_summarize(coco_eval, 0))
+        result_list.append(_summarize(coco_eval, 0))
+        result_list.append(_summarize(coco_eval, 0, areaRng='small'))
+        result_list.append(_summarize(coco_eval, 0, areaRng='medium'))
+        result_list.append(_summarize(coco_eval, 0, areaRng='large'))
+        return result_list
+
+    def eval_cocofied_lvis_result(self, gt_file, result_file, metric='segm'):
+
+        def get_lvis_format_result(lvis_params, lvis_results):
+            template = " {:<18} {} @[ IoU={:<9} | area={:>6s} | maxDets={:>3d} catIds={:>3s}] = {:0.3f}"
+
+            result_list = []
+            for key, value in lvis_results.items():
+                max_dets = lvis_params.max_dets
+                if "AP" in key:
+                    title = "Average Precision"
+                    _type = "(AP)"
+                else:
+                    title = "Average Recall"
+                    _type = "(AR)"
+
+                if len(key) > 2 and key[2].isdigit():
+                    iou_thr = (float(key[2:]) / 100)
+                    iou = "{:0.2f}".format(iou_thr)
+                else:
+                    iou = "{:0.2f}:{:0.2f}".format(
+                        lvis_params.iou_thrs[0], lvis_params.iou_thrs[-1]
+                    )
+
+                if len(key) > 2 and key[2] in ["r", "c", "f"]:
+                    cat_group_name = key[2]
+                else:
+                    cat_group_name = "all"
+
+                if len(key) > 2 and key[2] in ["s", "m", "l"]:
+                    area_rng = key[2]
+                else:
+                    area_rng = "all"
+
+                result_list.append(template.format(title, _type, iou, area_rng, max_dets, cat_group_name, value))
+            return result_list
+
+        print('load gt json')
+        lvis_gt = LVIS(gt_file)
+        cat_ids = lvis_gt.get_cat_ids()
+
+        print('load pred json')
+        lvis_dt = LVISResults(lvis_gt, result_file)
+
+        print('evaluating')
+        lvis_eval = LVISEval(lvis_gt, lvis_dt, metric)
+        lvis_eval.params.imgIds = lvis_gt.get_img_ids()
+
+        lvis_eval.evaluate()
+        lvis_eval.accumulate()
+        lvis_eval.summarize()
+
+        # Compute per-category AP
+        precisions = lvis_eval.eval['precision']
+        assert len(cat_ids) == precisions.shape[2]
+
+        results_per_category = []
+        for idx, catId in enumerate(cat_ids):
+            nm = lvis_gt.load_cats([catId])[0]
+            precision = precisions[:, :, idx, 0]
+            precision = precision[precision > -1]
+            if precision.size:
+                ap = np.mean(precision)
+            else:
+                ap = float('nan')
+            results_per_category.append(
+                (f'{nm["name"]}', f'{float(ap):0.3f}'))
+
+        num_columns = min(6, len(results_per_category) * 2)
+        results_flatten = list(
+            itertools.chain(*results_per_category))
+        headers = ['category', 'AP'] * (num_columns // 2)
+        results_2d = itertools.zip_longest(*[
+            results_flatten[i::num_columns]
+            for i in range(num_columns)
+        ])
+        table_data = [headers]
+        table_data += [result for result in results_2d]
+        table = AsciiTable(table_data)
+        print_log('\n' + table.table)
+
+        format_summary_result_list = get_lvis_format_result(lvis_eval.params, lvis_eval.results)
+        format_summary_result = "\n".join(format_summary_result_list)
+
+        with open(f"cocofied_per-category-ap-{metric}.txt", 'w') as f:
+            f.write(table.table + "\n" + format_summary_result)
+
+        lvis_eval.print_results()

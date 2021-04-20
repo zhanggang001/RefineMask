@@ -157,7 +157,7 @@ class CityscapesDataset(CocoDataset):
 
         return result_files
 
-    def format_results(self, results, txtfile_prefix=None):
+    def format_results(self, results, txtfile_prefix=None, jsonfile_prefix=None):
         """Format the results to txt (standard format for Cityscapes
         evaluation).
 
@@ -182,12 +182,12 @@ class CityscapesDataset(CocoDataset):
             'The length of results is not equal to the dataset len: {} != {}'.
             format(len(results), len(self)))
 
-        if txtfile_prefix is None:
+        if jsonfile_prefix is None:
             tmp_dir = tempfile.TemporaryDirectory()
-            txtfile_prefix = osp.join(tmp_dir.name, 'results')
+            jsonfile_prefix = osp.join(tmp_dir.name, 'results')
         else:
             tmp_dir = None
-        result_files = self.results2txt(results, txtfile_prefix)
+        result_files = self.results2json(results, jsonfile_prefix)
 
         return result_files, tmp_dir
 
@@ -254,7 +254,7 @@ class CityscapesDataset(CocoDataset):
             self_coco.data_infos = self_coco.load_annotations(self.ann_file)
             eval_results.update(
                 self_coco.evaluate(results, metrics, logger, outfile_prefix,
-                                   classwise, proposal_nums, iou_thrs))
+                                   classwise, proposal_nums, iou_thrs, for_cityscapes=True))
 
         return eval_results
 
