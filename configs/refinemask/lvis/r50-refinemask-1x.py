@@ -186,7 +186,7 @@ test_pipeline = [
         ])
 ]
 
-data_root = '/home/zhanggang/mmdetection/data/lvis'
+data_root = '/home/zhanggang/RefineMask/data/lvis' # change this to your own path
 data = dict(
     samples_per_gpu=1,
     workers_per_gpu=1,

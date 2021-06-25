@@ -178,7 +178,7 @@ test_pipeline = [
         ])
 ]
 
-data_root = '/home/zhanggang/mmdetection/data/cityscapes'
+data_root = '/home/zhanggang/RefineMask/data/cityscapes' # change this to your own path
 data = dict(
     samples_per_gpu=1,
     workers_per_gpu=2,

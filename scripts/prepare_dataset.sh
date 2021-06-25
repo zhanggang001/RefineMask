@@ -1,6 +1,6 @@
 set -e
 
-PROJ_DIR==.../mmdetection
+PROJ_DIR==$HOME/RefineMask
 cd $PROJ_DIR
 
 COCO_ROOT=...
