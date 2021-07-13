@@ -98,10 +98,12 @@ Note: The codes only support batch size 1 per GPU, and we trained all models wit
 
 ## Citation
 ```
-@article{zhang2021refinemask,
-  title={RefineMask: Towards High-Quality Instance Segmentation with Fine-Grained Features},
-  author={Gang, Zhang and Xin, Lu and Jingru, Tan and Jianmin, Li and Zhaoxiang, Zhang and Quanquan, Li and Xiaolin, Hu},
-  journal={arXiv preprint arXiv:2104.08569},
-  year={2021}
+@InProceedings{Zhang_2021_CVPR,
+    author    = {Zhang, Gang and Lu, Xin and Tan, Jingru and Li, Jianmin and Zhang, Zhaoxiang and Li, Quanquan and Hu, Xiaolin},
+    title     = {RefineMask: Towards High-Quality Instance Segmentation With Fine-Grained Features},
+    booktitle = {Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (CVPR)},
+    month     = {June},
+    year      = {2021},
+    pages     = {6861-6869}
 }
 ```
