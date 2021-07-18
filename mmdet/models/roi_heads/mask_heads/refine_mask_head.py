@@ -99,11 +99,9 @@ class SFMStage(nn.Module):
         concat_tensors.append(instance_masks)
 
         # instance-wise semantic masks
-        fake_rois = rois.clone()
-        fake_rois[:, 0] = torch.zeros(len(rois))
         _semantic_pred = semantic_pred.sigmoid() if self.mask_use_sigmoid else semantic_pred
         ins_semantic_masks = roi_align(
-            _semantic_pred, fake_rois, instance_feats.shape[-2:], 1.0 / self.semantic_out_stride, 0, 'avg', True)
+            _semantic_pred, rois, instance_feats.shape[-2:], 1.0 / self.semantic_out_stride, 0, 'avg', True)
         ins_semantic_masks = F.interpolate(
             ins_semantic_masks, instance_feats.shape[-2:], mode='bilinear', align_corners=True)
         concat_tensors.append(ins_semantic_masks)
@@ -238,7 +236,7 @@ class RefineMaskHead(nn.Module):
 
         return stage_instance_preds, semantic_pred
 
-    def get_targets(self, pos_bboxes, pos_assigned_gt_inds, gt_masks):
+    def get_targets(self, pos_bboxes_list, pos_assigned_gt_inds_list, gt_masks_list):
 
         def _generate_instance_targets(pos_proposals, pos_assigned_gt_inds, gt_masks, mask_size=None):
             device = pos_proposals.device
@@ -255,18 +253,35 @@ class RefineMaskHead(nn.Module):
 
             return instance_targets
 
-        # multi-stage instance mask targets
-        stage_instance_targets = [_generate_instance_targets(
-            pos_bboxes, pos_assigned_gt_inds, gt_masks, mask_size=mask_size) for mask_size in self.stage_sup_size]
+        semantic_target_list = []
+        stage_instance_targets_list = [[] for _ in range(len(self.stage_sup_size))]
+        for pos_bboxes, pos_assigned_gt_inds, gt_masks in zip(pos_bboxes_list, pos_assigned_gt_inds_list, gt_masks_list):
+            # multi-stage instance mask targets
+            stage_instance_targets = [_generate_instance_targets(
+                pos_bboxes, pos_assigned_gt_inds, gt_masks, mask_size=mask_size) for mask_size in self.stage_sup_size]
 
-        # binary image semantic target
-        if isinstance(gt_masks, BitmapMasks):
-            instance_masks = torch.from_numpy(gt_masks.to_ndarray()).to(device=pos_bboxes.device, dtype=torch.float32)
-        else:
-            im_height, im_width = gt_masks.height, gt_masks.width
-            instance_masks = [polygon_to_bitmap(polygon, im_height, im_width) for polygon in gt_masks]
-            instance_masks = torch.from_numpy(np.stack(instance_masks)).to(device=pos_bboxes.device, dtype=torch.float32)
-        semantic_target = instance_masks.max(dim=0, keepdim=True)[0]
+            # binary image semantic target
+            if isinstance(gt_masks, BitmapMasks):
+                instance_masks = torch.from_numpy(gt_masks.to_ndarray()).to(device=pos_bboxes.device, dtype=torch.float32)
+            else:
+                im_height, im_width = gt_masks.height, gt_masks.width
+                instance_masks = [polygon_to_bitmap(polygon, im_height, im_width) for polygon in gt_masks]
+                instance_masks = torch.from_numpy(np.stack(instance_masks)).to(device=pos_bboxes.device, dtype=torch.float32)
+            semantic_target = instance_masks.max(dim=0, keepdim=True)[0]
+
+            semantic_target_list.append(semantic_target)
+            for stage_idx in range(len(self.stage_sup_size)):
+                stage_instance_targets_list[stage_idx].append(stage_instance_targets[stage_idx])
+
+        stage_instance_targets = [torch.cat(targets) for targets in stage_instance_targets_list]
+
+        max_h = max([target.shape[-2] for target in semantic_target_list])
+        max_w = max([target.shape[-1] for target in semantic_target_list])
+        semantic_target = torch.zeros(
+            (len(semantic_target_list), max_h, max_w),
+            dtype=semantic_target_list[0].dtype, device=semantic_target_list[0].device)
+        for idx, target in enumerate(semantic_target_list):
+            semantic_target[idx, :target.shape[-2], :target.shape[-1]] = target
 
         return stage_instance_targets, semantic_target
 

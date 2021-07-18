@@ -47,16 +47,15 @@ class RefineRoIHead(StandardRoIHead):
         return losses
 
     def _mask_forward_train(self, x, sampling_results, bbox_feats, gt_bboxes, gt_masks, gt_labels, img_metas):
-        assert len(sampling_results) == 1, "Only support batch size as 1"
-
-        pos_rois = bbox2roi([sampling_results[0].pos_bboxes])
-        pos_labels = sampling_results[0].pos_gt_labels
-        pos_assigned_gt_inds = sampling_results[0].pos_assigned_gt_inds
+        pos_bboxes = [res.pos_bboxes for res in sampling_results]
+        pos_labels = [res.pos_gt_labels for res in sampling_results]
+        pos_assigned_gt_inds = [res.pos_assigned_gt_inds for res in sampling_results]
+        pos_rois = bbox2roi(pos_bboxes)
 
         stage_mask_targets, semantic_target = \
-            self.mask_head.get_targets(pos_rois[:, 1:], pos_assigned_gt_inds, gt_masks[0])
+            self.mask_head.get_targets(pos_bboxes, pos_assigned_gt_inds, gt_masks)
 
-        mask_results = self._mask_forward(x, pos_rois, pos_labels)
+        mask_results = self._mask_forward(x, pos_rois, torch.cat(pos_labels))
 
         # resize the semantic target
         semantic_target = F.interpolate(
@@ -82,8 +81,6 @@ class RefineRoIHead(StandardRoIHead):
 
     def simple_test_mask(self, x, img_metas, det_bboxes, det_labels, rescale=False):
         """Simple test for mask head without augmentation."""
-
-        assert len(img_metas) == 1, "Only support batch size as 1"
 
         ori_shape = img_metas[0]['ori_shape']
         scale_factor = img_metas[0]['scale_factor']

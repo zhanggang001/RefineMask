@@ -89,7 +89,7 @@ Note: We used the lvis-v1.0 dataset which consists of 1203 categories.
 ```
 ./scripts/dist_train.sh ./configs/refinemask/coco/r50-refinemask-1x.py 8 work_dirs/r50-refinemask-1x
 ```
-Note: The codes only support batch size 1 per GPU, and we trained all models with a total batch size 16x1. If you train models with a total batch size 8x1, the performance may drop. We will support batch size 2 or more per GPU later. You can use ./scripts/slurm_train.sh for training with multi-nodes.
+Note: <strike>The codes only support batch size 1 per GPU, and we trained all models with a total batch size 16x1. If you train models with a total batch size 8x1, the performance may drop. We will support batch size 2 or more per GPU later. You can use ./scripts/slurm_train.sh for training with multi-nodes.</strike> Multiple images per GPU during training has been supported now.
 
 ### Inference
 ```
