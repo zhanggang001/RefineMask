@@ -32,6 +32,17 @@ class MultiBranchFusion(nn.Module):
         return out_feat
 
 
+class MultiBranchFusionAvg(MultiBranchFusion):
+
+    def forward(self, x):
+        feat_1 = self.dilation_conv_1(x)
+        feat_2 = self.dilation_conv_2(x)
+        feat_3 = self.dilation_conv_3(x)
+        feat_4 = F.avg_pool2d(x, x.shape[-1])
+        out_feat = self.merge_conv(feat_1 + feat_2 + feat_3 + feat_4)
+        return out_feat
+
+
 class SFMStage(nn.Module):
 
     def __init__(self,
@@ -39,6 +50,7 @@ class SFMStage(nn.Module):
                  semantic_out_channel=256,
                  instance_in_channel=256,
                  instance_out_channel=256,
+                 fusion_type='MultiBranchFusion',
                  dilations=[1, 3, 5],
                  out_size=14,
                  num_classes=80,
@@ -65,7 +77,7 @@ class SFMStage(nn.Module):
         fuse_in_channel = instance_in_channel + semantic_out_channel + 2
         self.fuse_conv = nn.ModuleList([
             nn.Conv2d(fuse_in_channel, instance_in_channel, 1),
-            MultiBranchFusion(instance_in_channel, dilations=dilations)])
+            globals()[fusion_type](instance_in_channel, dilations=dilations)])
 
         self.fuse_transform_out = nn.Conv2d(instance_in_channel, instance_out_channel - 2, 1)
         self.upsample = build_upsample_layer(upsample_cfg.copy())
@@ -136,6 +148,7 @@ class RefineMaskHead(nn.Module):
                  conv_out_channels_semantic=256,
                  conv_cfg=None,
                  norm_cfg=None,
+                 fusion_type='MultiBranchFusion',
                  dilations=[1, 3, 5],
                  semantic_out_stride=4,
                  mask_use_sigmoid=False,
@@ -183,6 +196,7 @@ class RefineMaskHead(nn.Module):
                 semantic_out_channel=in_channel,
                 instance_in_channel=in_channel,
                 instance_out_channel=out_channel,
+                fusion_type=fusion_type,
                 dilations=dilations,
                 out_size=out_size,
                 num_classes=self.stage_num_classes[idx],
