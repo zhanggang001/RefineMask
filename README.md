@@ -2,6 +2,8 @@
 
 This repo is the official implementation of [RefineMask: Towards High-Quality Instance Segmentation with Fine-Grained Features](https://arxiv.org/abs/2104.08569).
 
+**Update:** A faster and slightly better implementation is available! You can train R50-RefineMask 2 images per gpu with less than 11G memory cost now. See [here](https://github.com/zhanggang001/RefineMask/blob/main/configs/refinemask/coco/r50-refinemask-1x-faster-better.py).
+
 ## Framework
 ![image](https://user-images.githubusercontent.com/79979076/112595320-394a7280-8e45-11eb-90b1-3164accd0518.png)
 

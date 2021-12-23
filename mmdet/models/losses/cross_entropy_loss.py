@@ -295,3 +295,62 @@ class RefineCrossEntropyLoss(nn.Module):
             F.binary_cross_entropy_with_logits(semantic_pred.squeeze(1), semantic_target)
 
         return loss_instance, loss_semantic
+
+
+@LOSSES.register_module()
+class BARCrossEntropyLoss(nn.Module):
+
+    def __init__(self,
+                 stage_instance_loss_weight=[1.0, 1.0, 1.0, 1.0],
+                 boundary_width=2,
+                 start_stage=1):
+        super(BARCrossEntropyLoss, self).__init__()
+
+        self.stage_instance_loss_weight = stage_instance_loss_weight
+        self.boundary_width = boundary_width
+        self.start_stage = start_stage
+
+    def forward(self, stage_instance_preds, stage_instance_targets):
+        loss_mask_set = []
+        for idx in range(len(stage_instance_preds)):
+            instance_pred, instance_target = stage_instance_preds[idx].squeeze(1), stage_instance_targets[idx]
+            if idx <= self.start_stage:
+                loss_mask = binary_cross_entropy(instance_pred, instance_target)
+                loss_mask_set.append(loss_mask)
+                pre_pred = instance_pred.sigmoid() >= 0.5
+
+            else:
+                pre_boundary = generate_block_target(pre_pred.float(), boundary_width=self.boundary_width) == 1
+                boundary_region = pre_boundary.unsqueeze(1)
+
+                target_boundary = generate_block_target(
+                    stage_instance_targets[idx - 1].float(), boundary_width=self.boundary_width) == 1
+                boundary_region = boundary_region | target_boundary.unsqueeze(1)
+
+                boundary_region = F.interpolate(
+                    boundary_region.float(),
+                    instance_pred.shape[-2:], mode='bilinear', align_corners=True)
+                boundary_region = (boundary_region >= 0.5).squeeze(1)
+
+                loss_mask = F.binary_cross_entropy_with_logits(instance_pred, instance_target, reduction='none')
+                loss_mask = loss_mask[boundary_region].sum() / boundary_region.sum().clamp(min=1).float()
+                loss_mask_set.append(loss_mask)
+
+                # generate real mask pred, set boundary width as 1, same as inference
+                pre_boundary = generate_block_target(pre_pred.float(), boundary_width=1) == 1
+
+                pre_boundary = F.interpolate(
+                    pre_boundary.unsqueeze(1).float(),
+                    instance_pred.shape[-2:], mode='bilinear', align_corners=True) >= 0.5
+
+                pre_pred = F.interpolate(
+                    stage_instance_preds[idx - 1],
+                    instance_pred.shape[-2:], mode='bilinear', align_corners=True)
+
+                pre_pred[pre_boundary] = stage_instance_preds[idx][pre_boundary]
+                pre_pred = pre_pred.squeeze(1).sigmoid() >= 0.5
+
+        assert len(self.stage_instance_loss_weight) == len(loss_mask_set)
+        loss_instance = sum([weight * loss for weight, loss in zip(self.stage_instance_loss_weight, loss_mask_set)])
+
+        return loss_instance
