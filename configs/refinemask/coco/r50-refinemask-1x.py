@@ -183,7 +183,7 @@ test_pipeline = [
 
 data_root = '/home/zhanggang/RefineMask/data/coco' # change this to your own path
 data = dict(
-    samples_per_gpu=1,
+    samples_per_gpu=2,
     workers_per_gpu=2,
     train=dict(
         type='CocoDataset',
